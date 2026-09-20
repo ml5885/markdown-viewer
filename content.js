@@ -14,7 +14,8 @@
   document.title = decodeURIComponent(url.split('/').pop());
 
   const THEME_STORAGE_KEY = 'markdown-viewer-theme';
-  let currentTheme = localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light';
+  const systemTheme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  let currentTheme = localStorage.getItem(THEME_STORAGE_KEY) ?? systemTheme;
   const applyTheme = (theme) => {
     currentTheme = theme === 'dark' ? 'dark' : 'light';
     body.classList.toggle('markdown-dark', currentTheme === 'dark');
@@ -57,6 +58,8 @@
 
       try {
         const rendered = await MathJax.tex2svgPromise(math, { display: displayMode });
+        const error = rendered.querySelector('[data-mjx-error]');
+        if (error) throw new Error(error.dataset.mjxError);
         rendered.classList.add(displayMode ? 'markdown-math-display' : 'markdown-math-inline');
         node.replaceWith(rendered);
       } catch (error) {
@@ -66,7 +69,7 @@
     }
   };
 
-  marked.use({
+  marked.use(markedFootnote(), {
     extensions: [
       {
         name: 'blockMath',
@@ -120,19 +123,21 @@
   wrapper.innerHTML = marked.parse(raw);
   await renderMathPlaceholders(wrapper);
 
+  const usedIds = new Set();
   const slugify = (text) => {
     const base = text.toLowerCase().trim()
-      .replace(/[^\w\s-]/g, '')
+      .replace(/[^\p{L}\p{N}\s_-]/gu, '')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '') || 'section';
     let slug = base;
     let n = 1;
-    while (document.getElementById(slug)) slug = `${base}-${n++}`;
+    while (usedIds.has(slug)) slug = `${base}-${n++}`;
+    usedIds.add(slug);
     return slug;
   };
 
-  const headings = [...wrapper.querySelectorAll('h1, h2, h3')];
+  const headings = [...wrapper.querySelectorAll('h1, h2, h3')].filter(h => !h.closest('.footnotes'));
   for (const h of headings) {
     if (!h.id) h.id = slugify(h.textContent);
   }
@@ -200,46 +205,52 @@
     syncThemeToggle();
   });
 
-  // Font picker
-  const fonts = [
-    "System Default",
-    "Apercu", "Avenir", "Avenir Next", "Baskerville", "Berkeley Mono",
-    "Charter", "Cochin", "CommitMono", "Courier New", "Dante MT",
-    "Departure Mono", "Didot", "DIN Alternate", "DM Mono", "EB Garamond",
-    "Fira Code", "Futura", "Galvji", "Geneva", "Georgia", "Gill Sans",
-    "GT America Trial", "GT Sectra Trial", "GT Walsheim Trial",
-    "Helvetica", "Helvetica Neue", "Hoefler Text", "Kefa",
-    "Lucida Grande", "Menlo", "Monaco", "Neue Montreal", "Noto Serif",
-    "Optima", "Palatino", "PP Editorial New", "PP Neue Montreal Mono",
-    "PT Sans", "PT Serif", "Rockwell", "Roslindale Text", "Satoshi",
-    "Sentient", "SF Mono", "Space Grotesk", "Tahoma", "Test Söhne",
-    "Times New Roman", "Trebuchet MS", "Verdana",
-  ];
+  // Font picker: lists the installed fonts that can render Latin text. A family with
+  // no Latin glyphs falls back to the generic font, so it measures identically to it.
+  // Wingdings & co. map letters to symbols and need excluding by name.
+  const SYMBOL_FONTS = /Wingdings|Webdings|Ornaments/;
+  const SAMPLE = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const ctx = document.createElement('canvas').getContext('2d');
+  const textWidth = (font) => {
+    ctx.font = `32px ${font}`;
+    return ctx.measureText(SAMPLE).width;
+  };
+  const fallbacks = ['monospace', 'serif'].map(f => [f, textWidth(f)]);
+  const rendersLatin = (family) =>
+    !family.startsWith('.') && !SYMBOL_FONTS.test(family) &&
+    fallbacks.some(([f, w]) => textWidth(`"${family}", ${f}`) !== w);
+
+  const FONT_STORAGE_KEY = 'markdown-viewer-font';
 
   const fontSelect = document.createElement('select');
   fontSelect.className = 'markdown-font-select';
 
-  for (const family of fonts) {
-    const opt = document.createElement('option');
-    opt.value = family === 'System Default' ? '' : family;
-    opt.textContent = family;
-    fontSelect.appendChild(opt);
-  }
+  const populateFonts = (families) => {
+    const current = fontSelect.value;
+    fontSelect.replaceChildren(new Option('System Default', ''));
+    for (const family of new Set([...families, current].filter(Boolean))) {
+      fontSelect.appendChild(new Option(family, family));
+    }
+    fontSelect.value = current;
+  };
 
   const applyFont = (family) => {
     wrapper.style.fontFamily = family || '';
     toc.style.fontFamily = family || '';
   };
 
-  const saved = localStorage.getItem('markdown-viewer-font');
-  if (saved) {
-    fontSelect.value = saved;
-    applyFont(saved);
-  }
+  const saved = localStorage.getItem(FONT_STORAGE_KEY) || '';
+  populateFonts([saved]);
+  fontSelect.value = saved;
+  applyFont(saved);
+
+  chrome.runtime.sendMessage('fonts').then((fonts) => {
+    populateFonts(fonts.map(f => f.displayName).filter(rendersLatin));
+  });
 
   fontSelect.addEventListener('change', () => {
     applyFont(fontSelect.value);
-    localStorage.setItem('markdown-viewer-font', fontSelect.value);
+    localStorage.setItem(FONT_STORAGE_KEY, fontSelect.value);
   });
 
   controls.appendChild(fontSelect);
