@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Markdown Viewer",
+  "version": "1.0",
+  "description": "Renders Markdown files opened in Chrome",
+  "permissions": [],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "include_globs": ["*://*/*.md*", "*://*/*.markdown*", "file:///*.md*", "file:///*.markdown*"],
+      "js": ["marked.min.js", "mathjax/config.js", "mathjax/tex-svg-full.js", "content.js"],
+      "css": ["style.css"],
+      "run_at": "document_end"
+    }
+  ]
+}
