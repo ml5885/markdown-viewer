@@ -27,7 +27,7 @@ body.markdown-dark {
 }
 
 .markdown-body {
-  max-width: 800px;
+  max-width: var(--markdown-text-width, 800px);
   margin: 40px auto;
   padding: 20px 40px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
@@ -54,8 +54,8 @@ body {
 .markdown-body > :first-child { margin-top: 0; }
 .markdown-body > :last-child { margin-bottom: 0; }
 
-.markdown-body h1 { font-size: 2em; padding-bottom: 0.3em; border-bottom: 1px solid var(--markdown-border); }
-.markdown-body h2 { font-size: 1.5em; padding-bottom: 0.3em; border-bottom: 1px solid var(--markdown-border); }
+.markdown-body h1 { font-size: 2em; }
+.markdown-body h2 { font-size: 1.5em; }
 .markdown-body h3 { font-size: 1.25em; }
 .markdown-body h4 { font-size: 1em; }
 .markdown-body h5 { font-size: 0.875em; }
@@ -142,7 +142,10 @@ body {
   border-collapse: collapse;
   margin-bottom: 16px;
   width: max-content;
-  max-width: 100%;
+  /* Center on the text column, free to extend past it on both sides up to the viewport */
+  max-width: calc(100vw - 48px);
+  margin-left: 50%;
+  transform: translateX(-50%);
   overflow: auto;
 }
 
@@ -254,6 +257,7 @@ body {
   position: fixed;
   top: 16px;
   right: 16px;
+  max-width: calc(100% - 32px);
   display: flex;
   gap: 8px;
   align-items: center;
@@ -261,7 +265,9 @@ body {
 }
 
 .markdown-toggle,
-.markdown-font-select {
+.markdown-font-select,
+.markdown-size-select,
+.markdown-width-select {
   padding: 6px 12px;
   font-size: 13px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
@@ -273,9 +279,12 @@ body {
   cursor: pointer;
 }
 .markdown-toggle:hover,
-.markdown-font-select:hover { background: var(--markdown-surface-hover); }
+.markdown-font-select:hover,
+.markdown-size-select:hover,
+.markdown-width-select:hover { background: var(--markdown-surface-hover); }
 .markdown-font-select {
   width: 160px;
+  min-width: 0;
   text-overflow: ellipsis;
 }
 
@@ -299,22 +308,31 @@ body {
 .markdown-focus-toggle:hover,
 .markdown-focus-toggle:focus-visible { opacity: 1; }
 
-body.markdown-focus .markdown-controls,
-body.markdown-focus .markdown-toc { display: none; }
+.markdown-controls,
+.markdown-toc { transition: opacity 0.15s; }
+
+body.markdown-focus .markdown-controls:not(:hover, :focus-within),
+body.markdown-focus .markdown-toc:not(:hover, :has(:focus-visible)) { opacity: 0; }
 
 /* Floating table of contents */
 .markdown-toc {
   position: fixed;
-  top: 60px; /* .markdown-body margin + padding */
-  left: 24px;
+  top: 52px; /* .markdown-body margin + padding, less own padding */
+  left: 12px;
   width: 240px;
   max-height: calc(100vh - 80px);
   overflow-y: auto;
+  padding: 8px 12px;
+  background: var(--markdown-bg);
+  border: 1px solid var(--markdown-border);
+  border-radius: 6px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   font-size: 13px;
   line-height: 1.6;
   z-index: 100;
 }
+
+.markdown-toc:empty { display: none; }
 
 .markdown-toc ul {
   list-style: none;
@@ -335,6 +353,13 @@ body.markdown-focus .markdown-toc { display: none; }
 
 @media (max-width: 1340px) {
   .markdown-toc { display: none; }
+}
+
+@media (min-width: 1341px) {
+  /* Reserve room for the table of contents beside the wide reading column. */
+  .markdown-toc + .markdown-body.markdown-wide {
+    max-width: min(var(--markdown-text-width), max(800px, calc(100vw - 640px)));
+  }
 }
 
 /* Raw view */

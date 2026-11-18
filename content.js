@@ -253,7 +253,50 @@
     localStorage.setItem(FONT_STORAGE_KEY, fontSelect.value);
   });
 
+  const FONT_SIZE_STORAGE_KEY = 'markdown-viewer-font-size';
+  const fontSizeSelect = document.createElement('select');
+  fontSizeSelect.className = 'markdown-size-select';
+  fontSizeSelect.setAttribute('aria-label', 'Markdown font size');
+  for (let size = 12; size <= 32; size += 2) {
+    fontSizeSelect.appendChild(new Option(`${size} px`, String(size)));
+  }
+  fontSizeSelect.value = localStorage.getItem(FONT_SIZE_STORAGE_KEY) ?? '16';
+  if (!fontSizeSelect.value) fontSizeSelect.value = '16';
+
+  const applyFontSize = () => {
+    wrapper.style.fontSize = `${fontSizeSelect.value}px`;
+  };
+  applyFontSize();
+  fontSizeSelect.addEventListener('change', () => {
+    applyFontSize();
+    localStorage.setItem(FONT_SIZE_STORAGE_KEY, fontSizeSelect.value);
+  });
+
+  const WIDTH_STORAGE_KEY = 'markdown-viewer-width';
+  const widthSelect = document.createElement('select');
+  widthSelect.className = 'markdown-width-select';
+  widthSelect.setAttribute('aria-label', 'Markdown text width');
+  widthSelect.append(
+    new Option('Narrow', '640'),
+    new Option('Standard', '800'),
+    new Option('Wide', '1040'),
+  );
+  widthSelect.value = localStorage.getItem(WIDTH_STORAGE_KEY) ?? '800';
+  if (!widthSelect.value) widthSelect.value = '800';
+
+  const applyWidth = () => {
+    wrapper.style.setProperty('--markdown-text-width', `${widthSelect.value}px`);
+    wrapper.classList.toggle('markdown-wide', widthSelect.value === '1040');
+  };
+  applyWidth();
+  widthSelect.addEventListener('change', () => {
+    applyWidth();
+    localStorage.setItem(WIDTH_STORAGE_KEY, widthSelect.value);
+  });
+
   controls.appendChild(fontSelect);
+  controls.appendChild(fontSizeSelect);
+  controls.appendChild(widthSelect);
   controls.appendChild(themeToggle);
   controls.appendChild(toggle);
 
@@ -308,6 +351,8 @@
       }
     };
     setActive();
+    fontSizeSelect.addEventListener('change', setActive);
+    widthSelect.addEventListener('change', setActive);
     window.addEventListener('scroll', setActive, { passive: true });
   }
 })();
