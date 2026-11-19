@@ -1,15 +1,24 @@
 (async () => {
   const url = location.pathname;
-  if (!url.match(/\.(md|markdown)$/i)) throw new Error('Not a markdown file');
-
   const body = document.body;
+  if (!url.match(/\.(md|markdown)$/i)) {
+    body.classList.add('markdown-skip');
+    return;
+  }
+
   const isPlainText =
     (body.children.length === 1 && body.children[0].tagName === 'PRE') ||
     (body.children.length === 0 && body.innerText === body.innerHTML);
 
   if (!isPlainText) throw new Error('Page already has HTML structure');
 
-  const raw = body.innerText;
+  const raw = body.textContent;
+
+  const scrollStorageKey = `markdown-viewer-scroll:${location.pathname}${location.search}`;
+  const isReload = performance.getEntriesByType('navigation')[0]?.type === 'reload';
+  const savedScroll = isReload ? JSON.parse(sessionStorage.getItem(scrollStorageKey)) : null;
+  const restoreScroll = savedScroll?.hash === location.hash && Number.isFinite(savedScroll.offset);
+  if (restoreScroll || (isReload && location.hash)) history.scrollRestoration = 'manual';
 
   document.title = decodeURIComponent(url.split('/').pop());
 
@@ -314,6 +323,12 @@
     applyFocus(!body.classList.contains('markdown-focus'));
   });
 
+  // Images have no intrinsic size until loaded, so the restored position is only right once they are.
+  if (restoreScroll || location.hash) {
+    const images = [...wrapper.querySelectorAll('img')].map(img => img.decode());
+    await Promise.race([Promise.allSettled(images), new Promise(r => setTimeout(r, 1500))]);
+  }
+
   body.innerHTML = '';
   body.appendChild(controls);
   body.appendChild(focusToggle);
@@ -321,15 +336,28 @@
   body.appendChild(wrapper);
   body.appendChild(rawView);
 
-  if (location.hash) {
+  // Scroll is saved relative to the topmost visible block so content changing above it can't shift it.
+  if (restoreScroll) {
+    const anchor = wrapper.children[savedScroll.index] ?? wrapper;
+    const top = window.scrollY + anchor.getBoundingClientRect().top + savedScroll.offset;
+    window.scrollTo({ top, behavior: 'instant' });
+  } else if (location.hash) {
     const hashId = decodeURIComponent(location.hash.slice(1));
     const hashTarget = document.getElementById(hashId);
-    if (hashTarget) {
-      requestAnimationFrame(() => {
-        scrollToHeading(hashTarget, 'auto');
-      });
-    }
+    if (hashTarget) scrollToHeading(hashTarget, 'instant');
   }
+
+  window.addEventListener('pagehide', () => {
+    if (showingRendered) {
+      const blocks = [...wrapper.children];
+      const index = blocks.findIndex(el => el.getBoundingClientRect().bottom > 0);
+      const anchor = blocks[index] ?? wrapper;
+      const offset = -anchor.getBoundingClientRect().top;
+      sessionStorage.setItem(scrollStorageKey, JSON.stringify({ hash: location.hash, index, offset }));
+    } else {
+      sessionStorage.removeItem(scrollStorageKey);
+    }
+  });
 
   window.addEventListener('hashchange', () => {
     const hashId = decodeURIComponent(location.hash.slice(1));
