@@ -130,6 +130,12 @@
   const wrapper = document.createElement('article');
   wrapper.className = 'markdown-body';
   wrapper.innerHTML = marked.parse(raw);
+  wrapper.querySelectorAll('table').forEach(table => {
+    const container = document.createElement('div');
+    container.className = 'markdown-table-scroll';
+    table.replaceWith(container);
+    container.appendChild(table);
+  });
   await renderMathPlaceholders(wrapper);
 
   const usedIds = new Set();

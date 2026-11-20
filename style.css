@@ -140,22 +140,22 @@ body:not(.markdown-skip) > pre:only-child {
 }
 
 /* Table */
+.markdown-table-scroll {
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
 .markdown-body table {
-  display: block;
+  width: 100%;
   border-spacing: 0;
   border-collapse: collapse;
-  margin-bottom: 16px;
-  width: max-content;
-  /* Center on the text column, free to extend past it on both sides up to the viewport */
-  max-width: calc(100vw - 48px);
-  margin-left: 50%;
-  transform: translateX(-50%);
-  overflow: auto;
+  font-size: 0.875em;
+  line-height: 1.4;
 }
 
 .markdown-body table th,
 .markdown-body table td {
-  padding: 6px 13px;
+  padding: 0.45em 0.7em;
   border: 1px solid var(--markdown-border);
 }
 
